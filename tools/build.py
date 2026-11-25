@@ -16,12 +16,13 @@ import argparse, os, shutil, struct, subprocess, sys
 import UnityPy
 from common import AA, DEFAULT_GAME, EN_BUNDLE, HE_DIR, ROOT, WORK, english, hebrew, load_json
 import metadata
+os.environ.setdefault("TIRGUMIM_PLAIN_FONTS", "1")  # merged GPOS tables misplace Hebrew letters in TMP
 import build_fonts
 
 RLI, PDI = '⁧', '⁩'
 DATA = 'EsportsManager_Data'
-FONT_FILES = ['resources.assets']
-ONLY_FONTS = ('LiberationSans',)
+FONT_FILES = ['resources.assets', 'sharedassets1.assets', 'sharedassets2.assets', 'sharedassets3.assets']
+SKIP_FONTS = ('NotoSansTC', 'NotoSansSC', 'NotoSansKR')
 
 
 def weight(name):
@@ -79,7 +80,7 @@ def main():
             if o.type.name != 'Font':
                 continue
             t = o.read_typetree()
-            if t['m_Name'] not in ONLY_FONTS or not t.get('m_FontData'):
+            if t['m_Name'].startswith(SKIP_FONTS) or not t.get('m_FontData'):
                 continue
             wd = 75 if 'condensed' in t['m_Name'].lower() or t['m_Name'] in ('Oswald-Bold', 'Anton') else 100
             ttf = build_fonts.build(os.path.join(ROOT, 'fonts', 'src'), work, weight(t['m_Name']), wd)

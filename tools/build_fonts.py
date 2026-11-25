@@ -63,6 +63,11 @@ def build(src, work, wght, wdth):
     a = instance(os.path.join(src, 'notosans__NotoSans.ttf'), wght, wdth, os.path.join(work, 'a.ttf'))
     h = instance(os.path.join(src, 'notosanshebrew__NotoSansHebrew.ttf'), wght, wdth, os.path.join(work, 'h.ttf'))
     m = Merger().merge([a, h])
+    if os.environ.get('TIRGUMIM_PLAIN_FONTS'):
+        # TextMeshPro applies GPOS itself; the merged tables misplace some Hebrew letters: drop them
+        for tag in ('GPOS', 'GSUB', 'GDEF', 'kern'):
+            if tag in m:
+                del m[tag]
     for rec in m['name'].names:
         if rec.nameID in (1, 3, 4, 16):
             rec.string = f'Tirgumim Noto {wght} {wdth}'
