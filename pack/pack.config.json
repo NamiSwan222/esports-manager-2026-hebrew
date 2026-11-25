@@ -1,0 +1,18 @@
+{
+  "packId": "esports-manager-2026-he",
+  "gameId": "esports-manager-2026",
+  "version": "1.0.0",
+  "title": "Esports Manager 2026 – עברית",
+  "authors": ["Tirgumim"],
+  "engine": "unity",
+  "requiresAccount": false,
+  "allowUnknownGameVersion": true,
+  "activation": { "mode": "args", "exe": "EsportsManager.exe", "args": ["-tirgumim_he"], "via": "steam" },
+  "filesDir": "../work/pack/files",
+  "patches": [
+    { "path": "EsportsManager_Data/StreamingAssets/aa/StandaloneWindows64/localization-string-tables-en_assets_all.bundle", "patched": "../work/build/localization-string-tables-en_assets_all.bundle", "output": "tirgumim/he/localization-string-tables-en_assets_all.bundle" },
+    { "path": "EsportsManager_Data/StreamingAssets/aa/catalog.bin", "patched": "../work/build/catalog.bin", "output": "tirgumim/he/catalog.bin" },
+    { "path": "EsportsManager_Data/resources.assets", "patched": "../work/build/resources.assets", "output": "tirgumim/he/resources.assets" },
+    { "path": "EsportsManager_Data/il2cpp_data/Metadata/global-metadata.dat", "patched": "../work/build/global-metadata.dat", "output": "tirgumim/he/global-metadata.dat" }
+  ]
+}

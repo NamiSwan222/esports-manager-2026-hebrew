@@ -1,0 +1,15 @@
+{
+  "id": "esports-manager-2026",
+  "name": "Esports Manager 2026",
+  "nameHe": "אי-ספורט מנג'ר 2026",
+  "engine": "unity",
+  "aboutHe": "תרגום מלא לעברית: התפריטים, מסכי המשחק והטקטיקות, האימיילים מהצוות ומהתקשורת, תיאורי הספונסרים, ההדרכה וגם הטקסטים שכתובים בתוך קוד המשחק, עם גופן עברי וכתיבה מימין לשמאל. העברית פעילה רק כשמפעילים את המשחק מהמשגר; הפעלה מ-Steam נשארת באנגלית.",
+  "detect": {
+    "steamAppId": "2749950",
+    "epicAppName": null,
+    "markerFile": "EsportsManager.exe",
+    "processNames": ["EsportsManager.exe"]
+  },
+  "pack": { "tag": "esports-manager-2026-*", "asset": "esports-manager-2026-he-*.zip" },
+  "requires": []
+}

@@ -1,0 +1,115 @@
+"""Build the Hebrew files from translation/he/*.json into work/pack/files (layout of the game folder).
+
+    python tools/build.py [--allow-missing] [--game "<install>"]
+
+- The English string-table bundle with every used string replaced by Hebrew wrapped in RLI…PDI
+  (U+2067/U+2069). The game's text engine does bidi itself (tested 2026-11-26); the isolate makes mixed
+  Hebrew/Latin lines right-to-left.
+- catalog.bin with that bundle's CRC set to 0 (Addressables would reject the changed bundle).
+- LiberationSans (TextMeshPro's default fallback, in resources.assets) replaced by Noto Sans + Noto Sans
+  Hebrew (OFL): all Hebrew glyphs then come from that fallback (the game's own fonts have none).
+These are written as modified copies to work/build; make-pack turns them into bsdiff patches with
+`output` into tirgumim\\he\\, and the proxy (version.dll) redirects the game to them only when started
+with -tirgumim_he.
+"""
+import argparse, os, shutil, struct, subprocess, sys
+import UnityPy
+from common import AA, DEFAULT_GAME, EN_BUNDLE, HE_DIR, ROOT, WORK, english, hebrew, load_json
+import metadata
+import build_fonts
+
+RLI, PDI = '⁧', '⁩'
+DATA = 'EsportsManager_Data'
+FONT_FILES = ['resources.assets']
+ONLY_FONTS = ('LiberationSans',)
+
+
+def weight(name):
+    n = name.lower()
+    for k, v in [('black', 900), ('extrabold', 800), ('semibold', 600), ('bold', 700), ('medium', 500), ('light', 300)]:
+        if k in n:
+            return v
+    return 400
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--allow-missing', action='store_true')
+    ap.add_argument('--game', default=DEFAULT_GAME)
+    ap.add_argument('--no-rtl', action='store_true', help='test: no RLI/PDI around strings')
+    ap.add_argument('--no-fonts', action='store_true', help='test: string tables only')
+    a = ap.parse_args()
+    if not a.allow_missing and subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'coverage.py')]).returncode:
+        sys.exit('coverage is not 100%: not building (use --allow-missing for a test build)')
+    out = os.path.join(WORK, 'build')
+    shutil.rmtree(out, ignore_errors=True)
+    os.makedirs(out)
+    en, he = english(), hebrew()
+    ids = {t: {r['id'] for r in rows} for t, rows in en.items()}
+    env = UnityPy.load(os.path.join(a.game, AA, EN_BUNDLE))
+    for o in env.objects:
+        if o.type.name != 'MonoBehaviour':
+            continue
+        t = o.read_typetree()
+        if 'm_TableData' not in t:
+            continue
+        name = t['m_Name'][:-3]
+        for e in t['m_TableData']:
+            h = he.get(name, {}).get(str(e['m_Id']))
+            if h and str(e['m_Id']) in ids.get(name, ()):
+                e['m_Localized'] = h if a.no_rtl else RLI + h + PDI
+        o.save_typetree(t)
+    new_bundle = env.file.save(packer='lz4')
+    open(os.path.join(out, EN_BUNDLE), 'wb').write(new_bundle)
+    # Addressables checks each bundle's CRC from catalog.bin. In our copy of the catalog the record of the
+    # replaced bundle gets CRC 0 (= don't check) and its new size: (u32 crc, u32 size) are adjacent.
+    cat = bytearray(open(os.path.join(a.game, AA, '..', 'catalog.bin'), 'rb').read())
+    old_size = os.path.getsize(os.path.join(a.game, AA, EN_BUNDLE))
+    i = cat.find(struct.pack('<I', old_size))
+    if i < 4 or cat.find(struct.pack('<I', old_size), i + 1) != -1:
+        sys.exit('catalog.bin: bundle record not found (or not unique)')
+    struct.pack_into('<II', cat, i - 4, 0, len(new_bundle))
+    open(os.path.join(out, 'catalog.bin'), 'wb').write(cat)
+    work = os.path.join(out, '_fonts')
+    os.makedirs(work)
+    for f in ([] if a.no_fonts else FONT_FILES):
+        env = UnityPy.load(os.path.join(a.game, DATA, f))
+        changed = False
+        for o in env.objects:
+            if o.type.name != 'Font':
+                continue
+            t = o.read_typetree()
+            if t['m_Name'] not in ONLY_FONTS or not t.get('m_FontData'):
+                continue
+            wd = 75 if 'condensed' in t['m_Name'].lower() or t['m_Name'] in ('Oswald-Bold', 'Anton') else 100
+            ttf = build_fonts.build(os.path.join(ROOT, 'fonts', 'src'), work, weight(t['m_Name']), wd)
+            t['m_FontData'] = list(open(ttf, 'rb').read())
+            o.save_typetree(t)
+            changed = True
+            print(f, t['m_Name'])
+        if changed:
+            open(os.path.join(out, f), 'wb').write(env.file.save())
+    shutil.rmtree(work)
+    # Text hard-coded in the game's code: IL2CPP string literals in global-metadata.dat.
+    meta_path = os.path.join(a.game, DATA, 'il2cpp_data', 'Metadata', 'global-metadata.dat')
+    md = open(meta_path, 'rb').read()
+    lits = metadata.literals(md)
+    tr = load_json(os.path.join(HE_DIR, '_literals.json'))
+    rep = {i: (s if a.no_rtl else RLI + s + PDI) for i, s in
+           ((i, tr.get(en)) for i, en in enumerate(lits)) if s}
+    open(os.path.join(out, 'global-metadata.dat'), 'wb').write(metadata.rewrite(md, rep))
+    print(len(rep), 'code literals replaced')
+    # launcher-only activation: proxy version.dll + its config (data files come from the patches above)
+    files = os.path.join(WORK, 'pack', 'files')
+    shutil.rmtree(files, ignore_errors=True)
+    os.makedirs(os.path.join(files, 'tirgumim', 'he'))
+    dll = os.path.join(WORK, 'proxy-target', 'release', 'tirgumim_proxy.dll')
+    if not os.path.exists(dll):
+        sys.exit(r'build the proxy first: tools\proxyuild.cmd version <repo>\work\proxy-target')
+    shutil.copy(dll, os.path.join(files, 'version.dll'))
+    shutil.copy(os.path.join(ROOT, 'pack', 'redirect.cfg'), os.path.join(files, 'tirgumim', 'he', 'redirect.cfg'))
+    print('built', os.listdir(out))
+
+
+if __name__ == '__main__':
+    main()
