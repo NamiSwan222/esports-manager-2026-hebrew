@@ -82,6 +82,72 @@ struct Seen {
 }
 static SEEN: Mutex<Option<Seen>> = Mutex::new(None);
 
+/// `labels=<file>` in redirect.cfg: UTF-8 lines `English<TAB>Hebrew` (`\n`, `\t`, `\\` escaped).
+static mut LABELS: Option<HashMap<Vec<u16>, Vec<u16>>> = None;
+/// `-tirgumim_textlog`: every distinct text without Hebrew set on a TextMeshPro component goes to
+/// %TEMP%\tirgumim_text.log (one per line, escaped like the labels file), to find untranslated text.
+static mut TEXTLOG: bool = false;
+static LOGGED: Mutex<Option<HashSet<u64>>> = Mutex::new(None);
+
+fn unescape(s: &str) -> String {
+    let mut o = String::new();
+    let mut it = s.chars();
+    while let Some(c) = it.next() {
+        if c == '\\' {
+            match it.next() {
+                Some('n') => o.push('\n'),
+                Some('r') => o.push('\r'),
+                Some('t') => o.push('\t'),
+                Some(x) => o.push(x),
+                None => o.push('\\'),
+            }
+        } else {
+            o.push(c);
+        }
+    }
+    o
+}
+
+pub fn escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('\n', "\\n").replace('\r', "\\r").replace('\t', "\\t")
+}
+
+pub unsafe fn load_labels(path: &str) -> usize {
+    let Ok(txt) = std::fs::read_to_string(path) else { return 0 };
+    let mut m = HashMap::new();
+    for line in txt.lines() {
+        if let Some((en, he)) = line.split_once('\t') {
+            if !en.is_empty() && !he.is_empty() {
+                m.insert(unescape(en).encode_utf16().collect(), unescape(he).encode_utf16().collect());
+            }
+        }
+    }
+    let n = m.len();
+    LABELS = Some(m);
+    n
+}
+
+pub unsafe fn enable_textlog() {
+    TEXTLOG = true;
+}
+
+fn text_log(text: &[u16]) {
+    let s = String::from_utf16_lossy(text);
+    if s.chars().filter(|c| c.is_ascii_alphabetic()).count() < 2 {
+        return;
+    }
+    let h = hash(text);
+    let mut g = LOGGED.lock().unwrap();
+    if !g.get_or_insert_with(HashSet::new).insert(h) {
+        return;
+    }
+    use std::io::Write;
+    let p = std::env::temp_dir().join("tirgumim_text.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
+        let _ = writeln!(f, "{}", escape(&s));
+    }
+}
+
 const H_LEFT: i32 = 1;
 const H_RIGHT: i32 = 4;
 
@@ -144,6 +210,20 @@ unsafe fn process(obj: P, s: P) -> P {
         if p.is_null() { &[] } else { core::slice::from_raw_parts(p, n) }
     };
     let can_align = ALIGN && GET_HALIGN.0 != 0 && SET_HALIGN.0 != 0;
+    let mut s = s;
+    let mut text = text;
+    if !rtl::has_rtl(text) {
+        // exact English UI labels shown through TextMeshPro: Hebrew for display only (code keys stay English)
+        if let Some(he) = LABELS.as_ref().and_then(|m| m.get(text)) {
+            let ns = (a.string_new_utf16)(he.as_ptr(), he.len() as i32);
+            if !ns.is_null() {
+                s = ns;
+                text = he.as_slice();
+            }
+        } else if TEXTLOG {
+            text_log(text);
+        }
+    }
     if !rtl::has_rtl(text) {
         let was = SEEN.lock().unwrap().as_mut().unwrap().flipped.remove(&(obj as usize));
         if let Some(aligned) = was {

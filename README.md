@@ -18,6 +18,16 @@ tools, our Hebrew text and OFL fonts; game files are changed only through binary
    `null` for other languages, developer messages and names. `translation/he/_literals.json` is
    `{English: Hebrew | null}`; short labels are added via `translation/literal_labels.json` after checking in game.
 
+3. **The term glossary** (main menu -> Glossary): ~123 markdown articles per language, each a code literal
+   (`**bold**`, `[[entry.id|link]]`, `# heading`, `!tip`, `=see ids`). `tools/glossary.py` lists the English ones
+   (`work/glossary_en.json`); they are translated in `_literals.json` like other literals.
+4. **Display labels**: short English strings (glossary titles and categories, "SEE ALSO"...) are not changed in
+   the code, where 1-2 word literals are often keys. `translation/he/_labels.json` maps the exact text shown in
+   TextMeshPro to Hebrew; the proxy swaps it at display time (`labels=labels.txt`).
+5. **What was really on screen**: started with `-tirgumim_textlog`, the proxy writes every English text shown in
+   TextMeshPro to `%TEMP%\tirgumim_text.log`. Copies go in `translation/seen_in_game.txt`; `coverage.py` fails on
+   any line that is not a label, a translated glossary paragraph or a name kept in Latin (`keep.json` "seen").
+
 ## How it renders
 
 - Right-to-left: TextMeshPro has no bidi and draws a logical Hebrew string left to right (mirrored), so the
@@ -52,6 +62,7 @@ replaced; a Steam launch is the original English game (the proxy stays inert wit
 
 ```
 python tools/extract.py                      # English tables -> work/en
+python tools/glossary.py                     # English glossary articles -> work/glossary_en.json
 python tools/literals.py                     # code-literal candidates -> work/literal_candidates.json
 python tools/coverage.py                     # tables 100% + every literal decided
 tools\proxy\build.cmd version %CD%\work\proxy-target

@@ -45,6 +45,57 @@ def check():
     return total, done, missing, broken
 
 
+def md_shape(s):
+    """What must survive translation in a glossary article: link ids, =see/=attrs lines, line structure."""
+    return (sorted(re.findall(r'\[\[([\w.]+)', s)), re.findall(r'(?m)^=(?:see|attrs) .*$', s.replace('\r', '')),
+            s.count('**'), s.count('\n'), re.findall(r'(?m)^(# |!tip |!trap |=table |- )', s.replace('\r', '')))
+
+
+def glossary_check():
+    """The in-game glossary (markdown literals): every English article translated with its markup intact."""
+    import json
+    path = os.path.join(WORK, 'glossary_en.json')
+    if not os.path.exists(path):
+        print('glossary: run tools/glossary.py first')
+        return 1
+    decided = load_json(os.path.join(ROOT, 'translation', 'he', '_literals.json'))
+    arts = [s for _, s in json.load(open(path, encoding='utf-8'))]
+    bad = [s for s in arts if not decided.get(s) or not HEB.search(decided[s]) or md_shape(s) != md_shape(decided[s])]
+    for s in bad:
+        print('GLOSSARY', 'missing' if not decided.get(s) else 'markup', repr(s[:80]))
+    print(f'glossary articles: {len(arts) - len(bad)}/{len(arts)} translated')
+    return len(bad)
+
+
+def seen_check():
+    """English text actually seen on screen (proxy -tirgumim_textlog, saved to translation/seen_in_game.txt):
+    each line must be a translated display label (_labels.json), a name kept in Latin (keep.json "seen"),
+    or a paragraph of a translated glossary article."""
+    import json
+    path = os.path.join(ROOT, 'translation', 'seen_in_game.txt')
+    if not os.path.exists(path):
+        return 0
+    labels = load_json(os.path.join(ROOT, 'translation', 'he', '_labels.json'))
+    keep = set(load_json(os.path.join(ROOT, 'translation', 'keep.json')).get('seen', []))
+    decided = load_json(os.path.join(ROOT, 'translation', 'he', '_literals.json'))
+    gpath = os.path.join(WORK, 'glossary_en.json')
+    plain = lambda s: re.sub(r'\s+', ' ', re.sub(r'<[^<>]*>|\*\*', '', re.sub(r'\[\[[\w.]+\|([^\]]*)\]\]', r'\1', s))).strip().lower()
+    arts = [plain(s) for _, s in json.load(open(gpath, encoding='utf-8')) if decided.get(s)] if os.path.exists(gpath) else []
+    bad = []
+    for line in open(path, encoding='utf-8').read().split('\n'):
+        line = line.replace('\\n', '\n').replace('\\t', '\t').replace('\\\\', '\\')
+        if not line or HEB.search(line) or line in labels or line in keep:
+            continue
+        p = plain(line)
+        if any(p in a for a in arts):
+            continue
+        bad.append(line)
+    for s in bad:
+        print('SEEN untranslated', repr(s[:100]))
+    print(f'seen in game: {len(bad)} untranslated')
+    return len(bad)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--batch', type=int)
@@ -66,6 +117,7 @@ def main():
             print('BROKEN literal', repr(s), '->', repr(decided[s]))
         print(f'code literals: {len(cands) - lit_missing}/{len(cands)} decided '
               f'({sum(1 for v in decided.values() if v)} translated)')
+    lit_missing += glossary_check() + seen_check()
     if a.batch:
         todo = os.path.join(WORK, 'todo')
         os.makedirs(todo, exist_ok=True)

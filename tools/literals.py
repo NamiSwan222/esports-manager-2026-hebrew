@@ -38,8 +38,10 @@ def ui_sentence(s):
 
 
 def candidates(lits):
+    import glossary
     labels = set(load_json(os.path.join(ROOT, 'translation', 'literal_labels.json')).get('labels', []))
-    return [[i, s] for i, s in enumerate(lits) if ui_sentence(s) or s in labels]
+    articles = {i for i, _ in glossary.articles(lits)}  # markdown with [[entry.id|..]] fails ui_sentence
+    return [[i, s] for i, s in enumerate(lits) if ui_sentence(s) or s in labels or i in articles]
 
 
 def main():

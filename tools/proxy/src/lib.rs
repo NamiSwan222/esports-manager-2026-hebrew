@@ -17,6 +17,8 @@
 //!   map=Some\Game\File.bin=File.bin   opening that game file opens <data dir>\File.bin instead
 //!   rtl=tmp | rtl=tmp-right           IL2CPP + TextMeshPro: Hebrew texts right-to-left (tmp.rs);
 //!                                     tmp-right also right-aligns left-aligned Hebrew texts
+//!   labels=labels.txt                 with rtl=tmp: exact English texts shown in TextMeshPro -> Hebrew
+//!                                     (display only); -tirgumim_textlog logs the English ones left
 //! Missing config or data file: stays inert.
 #![allow(non_snake_case, static_mut_refs, clippy::missing_safety_doc)]
 
@@ -541,6 +543,12 @@ unsafe fn activate() {
         } else if let Some(r) = line.strip_prefix("rtl=") {
             RTL_TMP = r.starts_with("tmp");
             tmp::enable(r == "tmp-right");
+            if cmd.split_whitespace().any(|a| a == "-tirgumim_textlog") {
+                tmp::enable_textlog();
+            }
+        } else if let Some(r) = line.strip_prefix("labels=") {
+            let n = tmp::load_labels(&format!("{data}\\{r}"));
+            log(&format!("labels: {n}"));
         } else if let Some(r) = line.strip_prefix("modules=") {
             MODULES = r.split(',').map(|m| wide(m.trim())).collect();
         } else if let Some(r) = line.strip_prefix("map=") {

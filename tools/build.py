@@ -6,6 +6,8 @@
   has no bidi: the proxy makes Hebrew texts right-to-left at runtime, when they are set on a text component
   (tools/proxy/src/tmp.rs, `rtl=tmp` in pack/redirect.cfg).
 - catalog.bin with that bundle's CRC set to 0 (Addressables would reject the changed bundle).
+- labels.txt: exact English UI labels (glossary titles, categories...) that the proxy shows in Hebrew; they
+  stay English in the code, where short strings are often keys (translation/he/_labels.json).
 - LiberationSans (TextMeshPro's default fallback, in resources.assets) replaced by Noto Sans + Noto Sans
   Hebrew (OFL): all Hebrew glyphs then come from that fallback (the game's own fonts have none).
 These are written as modified copies to work/build; make-pack turns them into bsdiff patches with
@@ -103,9 +105,15 @@ def main():
     os.makedirs(os.path.join(files, 'tirgumim', 'he'))
     dll = os.path.join(WORK, 'proxy-target', 'release', 'tirgumim_proxy.dll')
     if not os.path.exists(dll):
-        sys.exit(r'build the proxy first: tools\proxyuild.cmd version <repo>\work\proxy-target')
+        sys.exit(r'build the proxy first: tools\proxy\build.cmd version <repo>\work\proxy-target')
     shutil.copy(dll, os.path.join(files, 'version.dll'))
     shutil.copy(os.path.join(ROOT, 'pack', 'redirect.cfg'), os.path.join(files, 'tirgumim', 'he', 'redirect.cfg'))
+    # exact English UI labels the proxy swaps for Hebrew when TextMeshPro shows them (display only)
+    esc = lambda t: t.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+    labels = load_json(os.path.join(HE_DIR, '_labels.json'))
+    with open(os.path.join(files, 'tirgumim', 'he', 'labels.txt'), 'w', encoding='utf-8', newline='\n') as f:
+        f.writelines(f'{esc(k)}\t{esc(v)}\n' for k, v in labels.items() if v)
+    print(len(labels), 'display labels')
     print('built', os.listdir(out))
 
 
