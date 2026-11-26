@@ -2,9 +2,9 @@
 
     python tools/build.py [--allow-missing] [--game "<install>"]
 
-- The English string-table bundle with every used string replaced by Hebrew wrapped in RLI…PDI
-  (U+2067/U+2069). The game's text engine does bidi itself (tested 2026-11-26); the isolate makes mixed
-  Hebrew/Latin lines right-to-left.
+- The English string-table bundle with every used string replaced by Hebrew, in logical order. TextMeshPro
+  has no bidi: the proxy makes Hebrew texts right-to-left at runtime, when they are set on a text component
+  (tools/proxy/src/tmp.rs, `rtl=tmp` in pack/redirect.cfg).
 - catalog.bin with that bundle's CRC set to 0 (Addressables would reject the changed bundle).
 - LiberationSans (TextMeshPro's default fallback, in resources.assets) replaced by Noto Sans + Noto Sans
   Hebrew (OFL): all Hebrew glyphs then come from that fallback (the game's own fonts have none).
@@ -19,7 +19,6 @@ import metadata
 os.environ.setdefault("TIRGUMIM_PLAIN_FONTS", "1")  # merged GPOS tables misplace Hebrew letters in TMP
 import build_fonts
 
-RLI, PDI = '⁧', '⁩'
 DATA = 'EsportsManager_Data'
 FONT_FILES = ['resources.assets', 'sharedassets1.assets', 'sharedassets2.assets', 'sharedassets3.assets']
 SKIP_FONTS = ('NotoSansTC', 'NotoSansSC', 'NotoSansKR')
@@ -37,7 +36,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--allow-missing', action='store_true')
     ap.add_argument('--game', default=DEFAULT_GAME)
-    ap.add_argument('--no-rtl', action='store_true', help='test: no RLI/PDI around strings')
     ap.add_argument('--no-fonts', action='store_true', help='test: string tables only')
     a = ap.parse_args()
     if not a.allow_missing and subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'coverage.py')]).returncode:
@@ -58,7 +56,7 @@ def main():
         for e in t['m_TableData']:
             h = he.get(name, {}).get(str(e['m_Id']))
             if h and str(e['m_Id']) in ids.get(name, ()):
-                e['m_Localized'] = h if a.no_rtl else RLI + h + PDI
+                e['m_Localized'] = h
         o.save_typetree(t)
     new_bundle = env.file.save(packer='lz4')
     open(os.path.join(out, EN_BUNDLE), 'wb').write(new_bundle)
@@ -96,8 +94,7 @@ def main():
     md = open(meta_path, 'rb').read()
     lits = metadata.literals(md)
     tr = load_json(os.path.join(HE_DIR, '_literals.json'))
-    rep = {i: (s if a.no_rtl else RLI + s + PDI) for i, s in
-           ((i, tr.get(en)) for i, en in enumerate(lits)) if s}
+    rep = {i: s for i, s in ((i, tr.get(en)) for i, en in enumerate(lits)) if s}
     open(os.path.join(out, 'global-metadata.dat'), 'wb').write(metadata.rewrite(md, rep))
     print(len(rep), 'code literals replaced')
     # launcher-only activation: proxy version.dll + its config (data files come from the patches above)

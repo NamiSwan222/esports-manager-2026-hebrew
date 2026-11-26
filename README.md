@@ -20,8 +20,21 @@ tools, our Hebrew text and OFL fonts; game files are changed only through binary
 
 ## How it renders
 
-- The game's text engine does bidi itself; strings are stored in logical order and wrapped in RLI…PDI
-  (U+2067/U+2069) so mixed Hebrew/Latin lines are right-to-left.
+- Right-to-left: TextMeshPro has no bidi and draws a logical Hebrew string left to right (mirrored), so the
+  strings are stored in logical order and the proxy fixes them at runtime (`rtl=tmp` in `pack/redirect.cfg`,
+  `tools/proxy/src/tmp.rs` + `rtl.rs`). Right after `il2cpp_init` it hooks `TMP_Text.text` (setter) and
+  `TMP_Text.SetText(string)` (MethodInfo pointers, vtables, the method pointer table and direct call sites;
+  the game's code bytes are not patched in place). When a text with Hebrew letters is set, the component
+  gets `isRightToLeftText = true` (TextMeshPro lays it out from the right edge and wraps lines in string
+  order, so wrapped text keeps its line order) and the string is reordered by a reduced Unicode bidi
+  algorithm for a right-to-left paragraph: Latin/number runs ("Maya Smith", "3-1", "12/05/2026", "50%",
+  "(CS2)") are reversed so they come out left to right, brackets in Hebrew text are mirrored, rich-text
+  tags stay paired, `\n` and `<br>` split paragraphs. Text without Hebrew (names, numbers) switches the
+  component back to left-to-right. `rtl=tmp-right` would also right-align left-aligned Hebrew texts (off).
+  Logical text can be checked without the game: `tirgumim_rtl_text` / `tirgumim_rtl_selftest` exports of the
+  proxy, unit tests in `rtl.rs` (`cargo test` in `tools/proxy`).
+- Limits: text set into a component some other way (StringBuilder/char[] `SetText`, legacy `UnityEngine.UI.Text`)
+  is not reordered, and typing Hebrew into input fields is not supported.
 - Glyphs: none of the game's fonts has Hebrew. TextMeshPro's fallback `LiberationSans` (in `resources.assets`)
   gets Noto Sans + Noto Sans Hebrew (OFL, `fonts/src`).
 - Addressables checks bundle CRCs from `catalog.bin`; our copy of the catalog sets the CRC of the replaced
@@ -32,7 +45,8 @@ tools, our Hebrew text and OFL fonts; game files are changed only through binary
 `version.dll` next to the exe is our proxy (`tools/proxy`, Rust; UnityPlayer imports VERSION.dll). With
 `-tirgumim_he` it hooks file opens in `UnityPlayer.dll` and `GameAssembly.dll` and sends the game to our copies
 in `tirgumim\he\` (`pack/redirect.cfg`): the string-table bundle, `catalog.bin`, `resources.assets`,
-`global-metadata.dat`. Nothing in the game folder is replaced; a Steam launch is the original English game.
+`global-metadata.dat`. It also hooks TextMeshPro for right-to-left (above). Nothing in the game folder is
+replaced; a Steam launch is the original English game (the proxy stays inert without `-tirgumim_he`).
 
 ## Build
 

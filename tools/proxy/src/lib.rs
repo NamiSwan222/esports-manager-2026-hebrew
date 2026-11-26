@@ -15,6 +15,8 @@
 //!                                     open); its bytes are <data dir>\x_P.pak. Nothing is written
 //!                                     into the game folder.
 //!   map=Some\Game\File.bin=File.bin   opening that game file opens <data dir>\File.bin instead
+//!   rtl=tmp | rtl=tmp-right           IL2CPP + TextMeshPro: Hebrew texts right-to-left (tmp.rs);
+//!                                     tmp-right also right-aligns left-aligned Hebrew texts
 //! Missing config or data file: stays inert.
 #![allow(non_snake_case, static_mut_refs, clippy::missing_safety_doc)]
 
@@ -23,6 +25,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 include!(concat!(env!("OUT_DIR"), "/stubs.rs"));
+
+mod rtl;
+mod tmp;
 
 type Bool = i32;
 type Handle = *mut c_void;
@@ -107,6 +112,7 @@ static FINDS: Mutex<Option<HashMap<usize, Vec<usize>>>> = Mutex::new(None); // f
 static mut DEBUG: bool = false;
 static mut MODULES: Vec<Vec<u16>> = Vec::new(); // extra modules to hook (besides the exe), NUL-terminated
 static mut NEXT_FAKE: usize = 0x7a11_0000;
+static mut RTL_TMP: bool = false; // rtl=tmp: TextMeshPro right-to-left hooks (tmp.rs)
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
@@ -532,6 +538,9 @@ unsafe fn activate() {
             let cut = n.rfind('\\').unwrap_or(0);
             let shown = r.rsplit(['\\', '/']).next().unwrap_or(r);
             st.added.push(Added { dir: n[..cut].to_string(), name: shown.encode_utf16().collect(), lname: n[cut + 1..].to_string(), real: wide(&real) });
+        } else if let Some(r) = line.strip_prefix("rtl=") {
+            RTL_TMP = r.starts_with("tmp");
+            tmp::enable(r == "tmp-right");
         } else if let Some(r) = line.strip_prefix("modules=") {
             MODULES = r.split(',').map(|m| wide(m.trim())).collect();
         } else if let Some(r) = line.strip_prefix("map=") {
@@ -578,7 +587,7 @@ unsafe fn patch_all(first: bool) {
 }
 
 unsafe fn patch_module(base: *const u8, first: bool, which: usize) {
-    for (f, h) in [
+    let mut hooks = vec![
         ("CreateFile2", h_createfile2 as *const () as usize),
         ("LoadLibraryExW", h_loadlibraryexw as *const () as usize),
         ("LoadLibraryW", h_loadlibraryw as *const () as usize),
@@ -589,7 +598,12 @@ unsafe fn patch_module(base: *const u8, first: bool, which: usize) {
         ("FindFirstFileExW", h_findfirstfileexw as *const () as usize),
         ("FindNextFileW", h_findnextfilew as *const () as usize),
         ("FindClose", h_findclose as *const () as usize),
-    ] {
+    ];
+    if RTL_TMP {
+        // UnityPlayer looks up il2cpp_init with it: we wrap it to hook TextMeshPro right after init
+        hooks.push(("GetProcAddress", tmp::h_getprocaddress as *const () as usize));
+    }
+    for (f, h) in hooks {
         let n = patch_iat(base, f, h);
         if first || n > 0 {
             log(&format!("patch module {which} {f}: {n}"));

@@ -20,6 +20,7 @@ fn main() {
         names += &format!("b\"{name}\0\",");
         n += 1;
     }
+    def += "  tirgumim_rtl_selftest\n  tirgumim_rtl_text\n"; // test entries (tmp.rs)
     fs::write(out.join("exports.def"), def).unwrap();
     fs::write(
         out.join("stubs.rs"),
