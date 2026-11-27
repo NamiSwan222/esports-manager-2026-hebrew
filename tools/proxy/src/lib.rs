@@ -17,8 +17,18 @@
 //!   map=Some\Game\File.bin=File.bin   opening that game file opens <data dir>\File.bin instead
 //!   rtl=tmp | rtl=tmp-right           IL2CPP + TextMeshPro: Hebrew texts right-to-left (tmp.rs);
 //!                                     tmp-right also right-aligns left-aligned Hebrew texts
-//!   labels=labels.txt                 with rtl=tmp: exact English texts shown in TextMeshPro -> Hebrew
-//!                                     (display only); -tirgumim_textlog logs the English ones left
+//!   labels=labels.txt                 with rtl=tmp: English texts shown in TextMeshPro -> Hebrew
+//!                                     (display only: the whole text, its upper-case form, or the
+//!                                     runs between rich-text tags and line breaks)
+//!   bios=bios.txt                     with rtl=tmp: player bios as a career save holds them -> Hebrew
+//!                                     (whole text only; `*` lines are templates: skeleton keys)
+//!   dates=dates.txt                   with rtl=tmp: English dates built at run time ("Thursday,
+//!                                     January 1, 2026") -> Hebrew, only whole date shapes (dates.rs)
+//!   keep=keep.txt                     texts that stay Latin on purpose (names): never logged
+//! labels, bios and keep hold no English: each English text is a key, 16 hex digits of SHA-256 over
+//! its UTF-8 bytes (sha.rs); the hooks hash what TextMeshPro is given and look the key up (tmp.rs).
+//! Text log: `-tirgumim_textlog`, or a file `textlog.on` in the data folder, writes each English text
+//! TextMeshPro shows (no Hebrew, not a label, not kept) once to `<data folder>\textlog.txt`.
 //! Missing config or data file: stays inert.
 #![allow(non_snake_case, static_mut_refs, clippy::missing_safety_doc)]
 
@@ -28,6 +38,8 @@ use std::sync::Mutex;
 
 include!(concat!(env!("OUT_DIR"), "/stubs.rs"));
 
+mod dates;
+mod sha;
 mod rtl;
 mod tmp;
 
@@ -543,12 +555,23 @@ unsafe fn activate() {
         } else if let Some(r) = line.strip_prefix("rtl=") {
             RTL_TMP = r.starts_with("tmp");
             tmp::enable(r == "tmp-right");
-            if cmd.split_whitespace().any(|a| a == "-tirgumim_textlog") {
-                tmp::enable_textlog();
+            // text log: off unless asked for, by the argument or a file textlog.on next to redirect.cfg
+            if cmd.split_whitespace().any(|a| a == "-tirgumim_textlog") || std::path::Path::new(&format!("{data}\\textlog.on")).exists() {
+                tmp::enable_textlog(std::path::PathBuf::from(format!("{data}\\textlog.txt")));
+                log("textlog: on");
             }
         } else if let Some(r) = line.strip_prefix("labels=") {
             let n = tmp::load_labels(&format!("{data}\\{r}"));
             log(&format!("labels: {n}"));
+        } else if let Some(r) = line.strip_prefix("dates=") {
+            let n = dates::load(&format!("{data}\\{r}"));
+            log(&format!("dates: {n} shapes"));
+        } else if let Some(r) = line.strip_prefix("bios=") {
+            let (n, t) = tmp::load_bios(&format!("{data}\\{r}"));
+            log(&format!("bios: {n} + {t} templates"));
+        } else if let Some(r) = line.strip_prefix("keep=") {
+            let n = tmp::load_keep(&format!("{data}\\{r}"));
+            log(&format!("keep: {n}"));
         } else if let Some(r) = line.strip_prefix("modules=") {
             MODULES = r.split(',').map(|m| wide(m.trim())).collect();
         } else if let Some(r) = line.strip_prefix("map=") {

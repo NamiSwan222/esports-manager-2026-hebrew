@@ -1,0 +1,48 @@
+# English dates the game builds at run time (DateTime.ToString with English culture names) -> Hebrew.
+# The proxy (`dates=dates.txt`) rewrites only whole date shapes inside a displayed TextMeshPro text, before the
+# right-to-left step. build.py copies this file to tirgumim\he\dates.txt; tests: tools/proxy/src/dates.rs.
+#
+# weekday<TAB>English names (| aliases)<TAB>Hebrew<TAB>Hebrew short       (Sunday first)
+# month<TAB>English names (| aliases)<TAB>Hebrew<TAB>Hebrew short         (January first)
+# in<TAB>prefix for "in <month>" after a day number (1 בינואר)
+# shape<TAB>English<TAB>Hebrew      first matching shape wins, so longer shapes come first
+#   English tokens: {W} weekday name, {M} month name (full or short), {d} day (1-2 digits), {y} year (19xx/20xx),
+#                   {$} end of the date (end of text, or not followed by a word: "3 May players" is no date)
+#   Hebrew tokens:  {W} weekday, {w} short weekday, {d} day without a leading zero, {y} year,
+#                   {M} / {m} full / short month, {inM} / {inm} with the "in" prefix,
+#                   {M?} / {inM?} the same form (full or short) as the English month
+#   A space in English also matches a no-break space. Rich-text tags are matched literally.
+weekday	Sunday|Sun	יום ראשון	יום א׳
+weekday	Monday|Mon	יום שני	יום ב׳
+weekday	Tuesday|Tue|Tues	יום שלישי	יום ג׳
+weekday	Wednesday|Wed	יום רביעי	יום ד׳
+weekday	Thursday|Thu|Thur|Thurs	יום חמישי	יום ה׳
+weekday	Friday|Fri	יום שישי	יום ו׳
+weekday	Saturday|Sat	שבת	שבת
+month	January|Jan	ינואר	ינו׳
+month	February|Feb	פברואר	פבר׳
+month	March|Mar	מרץ	מרץ
+month	April|Apr	אפריל	אפר׳
+month	May	מאי	מאי
+month	June|Jun	יוני	יוני
+month	July|Jul	יולי	יולי
+month	August|Aug	אוגוסט	אוג׳
+month	September|Sep|Sept	ספטמבר	ספט׳
+month	October|Oct	אוקטובר	אוק׳
+month	November|Nov	נובמבר	נוב׳
+month	December|Dec	דצמבר	דצמ׳
+in	ב
+# top bar (DateController.UpdateDate: "<b>" + dddd + "</b>,<br>" + "dd MMM yyyy")
+shape	<b>{W}</b>,<br>{d} {M} {y}	<b>{W}</b>,<br>{d} {inM} {y}
+# long dates: en-US "dddd, MMMM d, yyyy" (email header), invariant "dddd, dd MMMM yyyy"
+shape	{W}, {M} {d}, {y}	{W}, {d} {inM?} {y}
+shape	{W}, {d} {M} {y}	{W}, {d} {inM?} {y}
+shape	{W} {d} {M} {y}	{W}, {d} {inM?} {y}
+# "MMMM d, yyyy", "MMM d, yyyy"
+shape	{M} {d}, {y}	{d} {inM?} {y}
+# "d MMMM yyyy" (transfer news, organization facts), "dd MMM yyyy" (finance report)
+shape	{d} {M} {y}	{d} {inM?} {y}
+# "MMMM yyyy" (monthly report, finances), "MMM yyyy"
+shape	{M} {y}	{M?} {y}
+# "d MMMM" (organization facts), "dd MMM" (finance report, tournament results): only as a whole date
+shape	{d} {M}{$}	{d} {inM?}

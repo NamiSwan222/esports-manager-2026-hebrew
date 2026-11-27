@@ -3,7 +3,7 @@
     python tools/unify.py
 """
 import os, re
-from common import HE_DIR, english, hebrew, load_json, save_json
+from common import H as text_key, HE_DIR, WORK, english, hebrew, load_he, load_json, save_he, save_json
 
 H = r'[א-ת]'
 # whole-word replacements (a Hebrew prefix letter like ב/ל/ה/ו before the word is kept)
@@ -39,15 +39,19 @@ def main():
                 he[t][k] = new
                 n += 1
         save_json(os.path.join(HE_DIR, t + '.json'), dict(sorted(he[t].items())))
-    p = os.path.join(HE_DIR, '_literals.json')
-    lit = load_json(p)
-    for e, v in list(lit.items()):
+    lit = load_he('_literals')
+    # the English of each entry (for the Rush/Fake rules) from the regenerated literal list (tools/inventory.py)
+    en_of = {}
+    for e in load_json(os.path.join(WORK, 'inventory', 'literals.json')) or []:
+        if e['text'] in lit:
+            en_of.setdefault(text_key(e["text"]), e["text"])
+    for h, v in list(lit.raw.items()):
         if v:
-            new = fix(v, e)
+            new = fix(v, en_of.get(h))
             if new != v:
-                lit[e] = new
+                lit.raw[h] = new
                 n += 1
-    save_json(p, dict(sorted(lit.items())))
+    save_he('_literals', lit)
     print('changed', n)
 
 

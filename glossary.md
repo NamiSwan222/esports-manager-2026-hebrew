@@ -48,3 +48,45 @@ Address the player (the manager) in masculine singular unless a gender choice is
 - Keep TextMeshPro tags: `<b>`…`</b>`, `<color=...>`…`</color>`, `<style=...>`…`</style>`,
   `<uppercase>`…`</uppercase>` (harmless for Hebrew), `<br>`. Wrap the matching Hebrew words.
 - Keep line breaks where they separate paragraphs (emails). Write Hebrew in logical order; the game lays it out.
+
+## Roles (unified to the UI, 2026-11-27)
+| English | Hebrew | Note |
+|---|---|---|
+| In-game leader (label) | מוביל במשחק | prose/bios: "מוביל במשחק (IGL)"; the UI also uses plain IGL ("מנה ל-IGL") |
+| Rifler / Lurker / Support / Entry (fragger) | רייפלר / לורקר / תומך / אנטרי | as the role labels; never "אנטרי פראגר", never מנהיג המשחק |
+| Sniper / AWPer | צלף / AWPer | "2 Snipers" = 2 צלפים; a player's role "AWPer" stays Latin |
+Run `python tools/unify_terms.py` after any new batch: it applies these rows to work/done and the literal/label files.
+
+## Bios and tournament descriptions (unified 2026-11-27, `BIO_RULES` in tools/unify_terms.py)
+| English | Hebrew |
+|---|---|
+| X (born <date>) is a retired <nationality> professional CS:GO player | X (נולד ב-<תאריך>) הוא שחקן <לאום> מקצועי בדימוס של Counter-Strike: Global Offensive |
+| a former CS:GO and CS player | שחקן לשעבר של Counter-Strike: Global Offensive ושל Counter-Strike (always "ושל", not "ו-") |
+| (formerly known as A and B) / (formerly stylized as A) | (בעבר A ו-B) / (בעבר נכתב A) |
+| (also known as A) / (also stylized as A) | (ידוע גם בשם A) / (נכתב גם A) |
+| (known as A prior to 2017) / (stylized as A prior to 2022) | (עד 2017 נקרא A) / (עד 2022 נכתב A) |
+| (briefly known as A) / (briefly stylized as A) | (לזמן קצר נקרא A) / (לזמן קצר נכתב A) |
+| Kazakh / Kazakhstani, Azerbaijani | קזחי (קזחית), אזרבייג'אני |
+| (female) professional player | שחקנית ... מקצועית (not מקצוענית) |
+| a Major, Major titles, two Majors | מייג'ור, תארי מייג'ור, שני מייג'ורים (tournament names such as "PGL Major Stockholm" stay Latin) |
+| the Tier 2 circuit | מעגל דרג 2 (as the "Tier 1" = "דרג 1" label) |
+| grassroots scene | הסצנה העממית (not "סצנת השורשים") |
+
+## Dialogs (club conversations, edit pass 2026-11-27)
+Spoken, casual Hebrew; staff and players speak to the manager in masculine singular, the manager answers in
+the first person masculine. Imperatives in the colloquial future form ("תשקול", "תעדכן", "תתחיל").
+| English | Hebrew | Note |
+|---|---|---|
+| put on the transfer list / list him for transfer | להכניס לרשימת ההעברות | not "להעמיד להעברה" |
+| sign (a player) | להחתים / החתמה | "לחתום" only for the player himself |
+| business class | ביזנס / מחלקת ביזנס | not מחלקת עסקים |
+| merch | מרצ'נדייז | not סחורה |
+| fans / supporters | אוהדים | not תומכים |
+| session (psychologist, mental training) | פגישה / מפגש | not סשן |
+| "Fair point" / "Good point" / "You have a point" | צודק / יש בזה משהו / בצדק | not נקודה הוגנת, יש לך נקודה |
+| assess / evaluate (a decision) | לבחון / לבדוק | not להעריך (reads as "appreciate") |
+| tight budget | תקציב דחוק / מצומצם | not צפוף |
+| schedule is full / at capacity | בעומס מלא / הלו"ז מלא | not קיבולת |
+| aim (player skill) | דיוק | |
+| Major (tournament tier) | Major (ב-Major) | Latin |
+| "Coach" as a form of address | מאמן | the game's English wording |
